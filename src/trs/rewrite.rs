@@ -309,6 +309,18 @@ impl TRS {
             Ok(trs)
         }
     }
+    /// Move a rule from one place in the TRS to another.
+    pub fn randomly_move_rule<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
+        let mut trs = self.clone();
+        let num_rules = self.len();
+        let i: usize = rng.gen_range(0, num_rules);
+        let mut j: usize = rng.gen_range(0, num_rules);
+        while j == i {
+            j = rng.gen_range(0, num_rules);
+        }
+        trs.utrs.move_rule(i, j).expect("moving rule from random locations i to j");
+        Ok(trs)
+    }
 }
 impl fmt::Display for TRS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
