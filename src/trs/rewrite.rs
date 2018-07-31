@@ -12,6 +12,7 @@ use rand::Rng;
 use std::f64::NEG_INFINITY;
 use std::fmt;
 use term_rewriting::trace::Trace;
+
 use term_rewriting::{Rule, RuleContext, Strategy as RewriteStrategy, TRS as UntypedTRS};
 
 use super::{Lexicon, ModelParams, SampleError, TypeError};
@@ -320,6 +321,26 @@ impl TRS {
         }
         trs.utrs.move_rule(i, j).expect("moving rule from random locations i to j");
         Ok(trs)
+    }
+    /// replace helper
+    fn replace_term_helper(term: &Term, t: &Term, v: Term) -> Term{
+        if term == t {
+            return v;
+        } else if term.args() != vec![] {
+            match *term {
+                Term::Variable(_var) => {
+                    return term.clone();
+                },
+                Term::Application {op, args: _} => {
+                    let mut args = term.args().clone();
+                    for idx in 0..args.len() {
+                        args[idx] = TRS::replace_term_helper(&args[idx], t, v.clone());
+                    }
+                    return Term::Application{op, args};
+                },
+            }
+        }
+        return term.clone();
     }
 }
 impl fmt::Display for TRS {
