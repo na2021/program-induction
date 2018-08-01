@@ -342,6 +342,52 @@ impl TRS {
         }
         return term.clone();
     }
+    /// swap lhs and rhs by randomly chosing one
+    fn swap_lhs_and_r_rhs_helper<R: Rng>(rule: &Rule, rng: &mut R) -> Option<Rule> {
+        let r = TRS::swap_lhs_and_all_rhs_helper(rule);
+        if r == None {
+            return None;
+        }
+        let rules = r.unwrap();
+        let idx = rng.gen_range(0, rules.len());
+        Some(rules[idx].clone())
+    }
+    /// swap lhs and rhs only if there is one
+    fn swap_lhs_and_one_rhs_helper(rule: &Rule) -> Option<Rule> {
+        let r = rule.clone();
+        let rhs = match r.rhs() {
+            Some(rh) => {
+                rh
+            },
+            None => {
+                return None;
+            }
+        };
+        if rhs.variables().len() == r.lhs.variables().len() {
+            let new_rhs = vec![r.lhs];
+            return Rule::new(rhs, new_rhs);
+        }
+        return None
+    }
+    /// swap lhs and rhs all
+    fn swap_lhs_and_all_rhs_helper(rule: &Rule) -> Option<Vec<Rule>> {
+        let mut rules: Vec<Rule> = vec![];
+        let num_vars = rule.variables().len();
+        for idx in 0..rule.len() {
+            if rule.rhs[idx].variables().len() == num_vars {
+                let lhs = rule.rhs[idx].clone();
+                let rhs = vec![rule.lhs.clone()];
+                let temp_rule = Rule::new(lhs, rhs);
+                if temp_rule != None {
+                    rules.push(temp_rule.unwrap());
+                }
+            }
+        }
+        if rules.len() == 0 {
+            return None;
+        }
+        return Some(rules);
+    }
 }
 impl fmt::Display for TRS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
