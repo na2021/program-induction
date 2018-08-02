@@ -388,6 +388,70 @@ impl TRS {
         }
         return Some(rules);
     }
+    /// local difference, remove all the same
+    fn local_difference_helper(rule: &Rule) -> Option<Vec<Rule>> {
+        let r = rule.clone();
+        let rhs = r.rhs();
+        if rhs == None {
+            return None;
+        }
+        let temp_differences = TRS::find_differences(r.lhs, rhs.unwrap());
+        if temp_differences == None {
+            return None;
+        }
+        let differences = temp_differences.unwrap();
+        let mut rules: Vec<Rule> = vec![];
+        for idx in 0..differences.len() {
+            let temp_rule = Rule::new(differences[idx].0.clone(), vec![differences[idx].1.clone()]);
+            if temp_rule != None {
+                rules.push(temp_rule.unwrap());
+            }
+        }
+        if rules == vec![] {
+            return None;
+        }
+        Some(rules)
+    }
+    fn find_differences(lhs: Term, rhs: Term) -> Option<Vec<(Term, Term)>> {
+        if lhs == rhs {
+            return None;
+        }
+        match lhs.clone() {
+            Term::Variable(_x) => {
+                return None;
+            },
+            Term::Application{op: lop, args: largs} => {
+                if largs.len() == 0 {
+                    return Some(vec![(lhs, rhs)]);
+                }
+                match rhs.clone() {
+                    Term::Variable(_x) => {
+                        return Some(vec![(lhs, rhs)]);
+                    },
+                    Term::Application{op: rop, args: rargs} => {
+                        if lop != rop || largs.len() != rargs.len() {
+                            return Some(vec![(lhs, rhs)]);
+                        }
+                        let mut differences: Vec<(Term, Term)> = vec![];
+                        for idx in 0..largs.len() {
+                            let diff = TRS::find_differences(largs[idx].clone(), rargs[idx].clone());
+                            if diff != None {
+                                let new_diffs = diff.unwrap();
+                                for ids in 0..new_diffs.len(){
+                                    differences.push(new_diffs[ids].clone());
+                                }
+                            }
+                        }
+                        if differences == vec![] {
+                            return None;
+                        }
+                        return Some(differences);
+                    },
+                }
+            },
+        }
+        
+    }
 }
 impl fmt::Display for TRS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
