@@ -311,6 +311,22 @@ impl TRS {
         }
     }
     /// Move a rule from one place in the TRS to another.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use] extern crate polytype;
+    /// # extern crate programinduction;
+    /// # extern crate rand;
+    /// # extern crate term_rewriting;
+    /// # use programinduction::trs::{TRS, Lexicon};
+    /// # use rand::{thread_rng};
+    /// # use term_rewriting::{Context, RuleContext, Signature, parse_rule};
+    /// # fn main() {
+    /// let mut sig = Signature::default();
+    /// 
+    /// # }
+    /// ```
     pub fn randomly_move_rule<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
@@ -341,6 +357,15 @@ impl TRS {
             }
         }
         return term.clone();
+    }
+    fn replace_term_in_rule_helper(rule: &Rule, t: &Term, v: Term) -> Option<Rule>{
+        let r = rule.clone();
+        let lhs = TRS::replace_term_helper(&r.lhs, t, v.clone());
+        let rhs: Vec<Term> = vec![];
+        for idx in 0..r.rhs.len() {
+            rhs.push(TRS::replace_term_helper(&r.rhs[idx].clone(), t, v.clone());
+        }
+        Rule::new(lhs, rhs)
     }
     /// swap lhs and rhs by randomly chosing one
     fn swap_lhs_and_r_rhs_helper<R: Rng>(rule: &Rule, rng: &mut R) -> Option<Rule> {
