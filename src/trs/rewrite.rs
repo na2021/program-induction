@@ -324,7 +324,7 @@ impl TRS {
     /// # use term_rewriting::{Context, RuleContext, Signature, parse_rule};
     /// # fn main() {
     /// let mut sig = Signature::default();
-    /// 
+    ///
     /// # }
     /// ```
     pub fn randomly_move_rule<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
@@ -335,40 +335,42 @@ impl TRS {
         while j == i {
             j = rng.gen_range(0, num_rules);
         }
-        trs.utrs.move_rule(i, j).expect("moving rule from random locations i to j");
+        trs.utrs
+            .move_rule(i, j)
+            .expect("moving rule from random locations i to j");
         Ok(trs)
     }
     /// replace helper
-    fn replace_term_helper(term: &Term, t: &Term, v: Term) -> Term{
+    pub fn replace_term_helper(term: &Term, t: &Term, v: Term) -> Term {
         if term == t {
             return v;
         } else if term.args() != vec![] {
             match *term {
                 Term::Variable(_var) => {
                     return term.clone();
-                },
-                Term::Application {op, args: _} => {
+                }
+                Term::Application { op, args: _ } => {
                     let mut args = term.args().clone();
                     for idx in 0..args.len() {
                         args[idx] = TRS::replace_term_helper(&args[idx], t, v.clone());
                     }
-                    return Term::Application{op, args};
-                },
+                    return Term::Application { op, args };
+                }
             }
         }
         return term.clone();
     }
-    fn replace_term_in_rule_helper(rule: &Rule, t: &Term, v: Term) -> Option<Rule>{
+    pub fn replace_term_in_rule_helper(rule: &Rule, t: &Term, v: Term) -> Option<Rule> {
         let r = rule.clone();
         let lhs = TRS::replace_term_helper(&r.lhs, t, v.clone());
-        let rhs: Vec<Term> = vec![];
+        let mut rhs: Vec<Term> = vec![];
         for idx in 0..r.rhs.len() {
-            rhs.push(TRS::replace_term_helper(&r.rhs[idx].clone(), t, v.clone());
+            rhs.push(TRS::replace_term_helper(&r.rhs[idx].clone(), t, v.clone()));
         }
         Rule::new(lhs, rhs)
     }
     /// swap lhs and rhs by randomly chosing one
-    fn swap_lhs_and_r_rhs_helper<R: Rng>(rule: &Rule, rng: &mut R) -> Option<Rule> {
+    pub fn swap_lhs_and_r_rhs_helper<R: Rng>(rule: &Rule, rng: &mut R) -> Option<Rule> {
         let r = TRS::swap_lhs_and_all_rhs_helper(rule);
         if r == None {
             return None;
@@ -378,12 +380,10 @@ impl TRS {
         Some(rules[idx].clone())
     }
     /// swap lhs and rhs only if there is one
-    fn swap_lhs_and_one_rhs_helper(rule: &Rule) -> Option<Rule> {
+    pub fn swap_lhs_and_one_rhs_helper(rule: &Rule) -> Option<Rule> {
         let r = rule.clone();
         let rhs = match r.rhs() {
-            Some(rh) => {
-                rh
-            },
+            Some(rh) => rh,
             None => {
                 return None;
             }
@@ -392,10 +392,10 @@ impl TRS {
             let new_rhs = vec![r.lhs];
             return Rule::new(rhs, new_rhs);
         }
-        return None
+        return None;
     }
     /// swap lhs and rhs all
-    fn swap_lhs_and_all_rhs_helper(rule: &Rule) -> Option<Vec<Rule>> {
+    pub fn swap_lhs_and_all_rhs_helper(rule: &Rule) -> Option<Vec<Rule>> {
         let mut rules: Vec<Rule> = vec![];
         let num_vars = rule.variables().len();
         for idx in 0..rule.len() {
@@ -414,7 +414,7 @@ impl TRS {
         return Some(rules);
     }
     /// local difference, remove all the same
-    fn local_difference_helper(rule: &Rule) -> Option<Vec<Rule>> {
+    pub fn local_difference_helper(rule: &Rule) -> Option<Vec<Rule>> {
         let r = rule.clone();
         let rhs = r.rhs();
         if rhs == None {
@@ -437,32 +437,39 @@ impl TRS {
         }
         Some(rules)
     }
-    fn find_differences(lhs: Term, rhs: Term) -> Option<Vec<(Term, Term)>> {
+    pub fn find_differences(lhs: Term, rhs: Term) -> Option<Vec<(Term, Term)>> {
         if lhs == rhs {
             return None;
         }
         match lhs.clone() {
             Term::Variable(_x) => {
                 return None;
-            },
-            Term::Application{op: lop, args: largs} => {
+            }
+            Term::Application {
+                op: lop,
+                args: largs,
+            } => {
                 if largs.len() == 0 {
                     return Some(vec![(lhs, rhs)]);
                 }
                 match rhs.clone() {
                     Term::Variable(_x) => {
                         return Some(vec![(lhs, rhs)]);
-                    },
-                    Term::Application{op: rop, args: rargs} => {
+                    }
+                    Term::Application {
+                        op: rop,
+                        args: rargs,
+                    } => {
                         if lop != rop || largs.len() != rargs.len() {
                             return Some(vec![(lhs, rhs)]);
                         }
                         let mut differences: Vec<(Term, Term)> = vec![];
                         for idx in 0..largs.len() {
-                            let diff = TRS::find_differences(largs[idx].clone(), rargs[idx].clone());
+                            let diff =
+                                TRS::find_differences(largs[idx].clone(), rargs[idx].clone());
                             if diff != None {
                                 let new_diffs = diff.unwrap();
-                                for ids in 0..new_diffs.len(){
+                                for ids in 0..new_diffs.len() {
                                     differences.push(new_diffs[ids].clone());
                                 }
                             }
@@ -471,11 +478,41 @@ impl TRS {
                             return None;
                         }
                         return Some(differences);
-                    },
+                    }
                 }
-            },
+            }
         }
-        
+    }
+    // helper for routinization
+    pub fn inverse_evaluation_helper(rule: &Rule, t: &Term) -> Term {
+        TRS::replace_term_helper(t, &rule.rhs[0], rule.lhs.clone())
+    }
+    // generalizes a rule by one step, converts one constant that exists in both sides of a rule into a variable
+    fn generalize_rule_helper(rule: &Rule, sig: &mut Signature) -> Option<Rule> {
+        let r = rule.clone();
+        let lops = r.lhs.operators();
+        let mut possible_consts: Vec<Operator> = vec![];
+        for idx in 0..lops.len() {
+            if lops[idx].arity(sig) == 0 {
+                possible_consts.push(lops[idx]);
+            }
+        }
+        if possible_consts == vec![] {
+            return Some(r);
+        }
+        for idx in 0..possible_consts.len() {
+            for ridx in 0..r.rhs.len() {
+                if r.rhs[ridx].operators().contains(&possible_consts[idx]) {
+                    let t = Term::Application {
+                        op: possible_consts[idx].clone(),
+                        args: vec![],
+                    };
+                    let v = Term::Variable(sig.new_var(Some("x".to_string())));
+                    return TRS::replace_term_in_rule_helper(&r, &t, v);
+                }
+            }
+        }
+        Some(r)
     }
 }
 impl fmt::Display for TRS {
