@@ -314,7 +314,12 @@ impl TRS {
         }
     }
     pub fn add_exception<R: Rng>(&self, data: Vec<Rule>, rng: &mut R) -> Result<TRS, SampleError> {
-        let num_background = self.lex.0.read().expect("poisoned lexicon").background.len();
+        let num_background = self.lex
+            .0
+            .read()
+            .expect("poisoned lexicon")
+            .background
+            .len();
         let mut trs = self.clone();
         let idx = rng.gen_range(0, data.len());
         trs.utrs.insert_idx(num_background, data[idx].clone())?;
@@ -381,7 +386,12 @@ impl TRS {
     pub fn randomly_move_rule<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
-        let num_background = self.lex.0.read().expect("poisoned lexicon").background.len();
+        let num_background = self.lex
+            .0
+            .read()
+            .expect("poisoned lexicon")
+            .background
+            .len();
         if num_background >= num_rules - 1 {
             return Ok(trs);
         }
@@ -573,7 +583,12 @@ impl TRS {
     pub fn swap_lhs_and_rhs<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
-        let num_background = self.lex.0.read().expect("poisoned lexicon").background.len();
+        let num_background = self.lex
+            .0
+            .read()
+            .expect("poisoned lexicon")
+            .background
+            .len();
         if num_background >= num_rules - 1 {
             return Ok(trs);
         }
@@ -583,7 +598,32 @@ impl TRS {
         if rules == None {
             return Ok(trs);
         }
-        trs.utrs.inserts_idx(idx, rules.unwrap()).expect("inserting rules back into trs");
+        trs.utrs
+            .inserts_idx(idx, rules.unwrap())
+            .expect("inserting rules back into trs");
+        Ok(trs)
+    }
+    pub fn local_difference<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
+        let mut trs = self.clone();
+        let num_rules = self.len();
+        let num_background = self.lex
+            .0
+            .read()
+            .expect("poisoned lexicon")
+            .background
+            .len();
+        if num_rules == num_background {
+            return Ok(trs);
+        }
+        let idx = rng.gen_range(num_background, num_rules);
+        let result = TRS::local_difference_helper(&trs.utrs.rules[idx]);
+        if result == None {
+            return Ok(trs);
+        }
+        let new_rules = result.unwrap();
+        let new_idx = rng.gen_range(0, new_rules.len());
+        trs.utrs
+            .insert_idx(num_background, new_rules[new_idx].clone())?;
         Ok(trs)
     }
     /// local difference, remove all the same
@@ -601,7 +641,7 @@ impl TRS {
     /// # fn main() {
     /// let mut sig = Signature::default();
     ///
-    /// let r = parse_rule(&mut sig, "A(B C(x_)) = A(D E(x_))").expect("parse of A(B C(x_)) = A(D C(x_))");
+    /// let r = parse_rule(&mut sig, "F(A(B C(x_))) = F(A(D E(x_)))").expect("parse of F(A(B C(x_))) = F(A(D E(x_)))");
     ///
     /// let result = TRS::local_difference_helper(&r);
     ///
@@ -609,8 +649,11 @@ impl TRS {
     ///     assert!(false);
     /// } else {
     ///     let rules = result.unwrap();
-    ///     assert_eq!(rules[0].display(&sig), "B = D");
-    ///     assert_eq!(rules[1].display(&sig), "C(x_) = E(x_)");
+    ///     assert_eq!(rules.len(), 4);
+    ///     assert_eq!(rules[0].display(&sig), "F(A(B C(x_))) = F(A(D E(x_)))");
+    ///     assert_eq!(rules[1].display(&sig), "A(B C(x_)) = A(D E(x_))");
+    ///     assert_eq!(rules[2].display(&sig), "B = D");
+    ///     assert_eq!(rules[3].display(&sig), "C(x_) = E(x_)");
     /// }
     /// # }
     /// ```
@@ -663,7 +706,7 @@ impl TRS {
                         if lop != rop {
                             return Some(vec![(lhs, rhs)]);
                         }
-                        let mut differences: Vec<(Term, Term)> = vec![];
+                        let mut differences: Vec<(Term, Term)> = vec![(lhs, rhs)];
                         for idx in 0..largs.len() {
                             let diff =
                                 TRS::find_differences(largs[idx].clone(), rargs[idx].clone());
@@ -742,7 +785,12 @@ impl TRS {
     pub fn inverse_evaluate<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
-        let num_background = self.lex.0.read().expect("poisoned lexicon").background.len();
+        let num_background = self.lex
+            .0
+            .read()
+            .expect("poisoned lexicon")
+            .background
+            .len();
         if num_background >= num_rules - 1 {
             return Ok(trs);
         }
@@ -751,12 +799,17 @@ impl TRS {
         while ref_idx == target_idx {
             target_idx = rng.gen_range(num_background, num_rules);
         }
-        let new_rule = TRS::inverse_evaluate_rule_helper(&trs.utrs.rules[ref_idx], &trs.utrs.rules[target_idx]);
+        let new_rule = TRS::inverse_evaluate_rule_helper(
+            &trs.utrs.rules[ref_idx],
+            &trs.utrs.rules[target_idx],
+        );
         if new_rule == None {
             return Ok(trs);
         }
         trs.utrs.remove_idx(target_idx).expect("removing old rule");
-        trs.utrs.insert_idx(target_idx, new_rule.unwrap()).expect("inserting new rule");
+        trs.utrs
+            .insert_idx(target_idx, new_rule.unwrap())
+            .expect("inserting new rule");
         Ok(trs)
     }
     // generalizes a rule by one step, converts one constant that exists in both sides of a rule into a variable
