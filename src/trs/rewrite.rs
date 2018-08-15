@@ -313,6 +313,13 @@ impl TRS {
             Ok(trs)
         }
     }
+    pub fn add_exception<R: Rng>(&self, data: Vec<Rule>, rng: &mut R) -> Result<TRS, SampleError> {
+        let num_background = self.lex.0.read().expect("poisoned lexicon").background.len();
+        let mut trs = self.clone();
+        let idx = rng.gen_range(0, data.len());
+        trs.utrs.insert_idx(num_background, data[idx].clone())?;
+        Ok(trs)
+    }
     /// Move a rule from one place in the TRS to another.
     ///
     /// # Example
