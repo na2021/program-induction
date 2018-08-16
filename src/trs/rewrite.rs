@@ -313,6 +313,7 @@ impl TRS {
             Ok(trs)
         }
     }
+    /// Memorizes a rule from the data provided at random and adds it to the TRS.
     pub fn add_exception<R: Rng>(&self, data: Vec<Rule>, rng: &mut R) -> Result<TRS, SampleError> {
         let num_background = self.lex
             .0
@@ -325,7 +326,7 @@ impl TRS {
         trs.utrs.insert_idx(num_background, data[idx].clone())?;
         Ok(trs)
     }
-    /// Move a rule from one place in the TRS to another.
+    /// Move a rule from one place in the TRS to another at random, excluding the background.
     ///
     /// # Example
     ///
@@ -483,16 +484,6 @@ impl TRS {
         }
         Rule::new(lhs, rhs)
     }
-    /// swap lhs and rhs by randomly chosing one
-    pub fn swap_lhs_and_r_rhs_helper<R: Rng>(rule: &Rule, rng: &mut R) -> Option<Rule> {
-        let r = TRS::swap_lhs_and_all_rhs_helper(rule);
-        if r == None {
-            return None;
-        }
-        let rules = r.unwrap();
-        let idx = rng.gen_range(0, rules.len());
-        Some(rules[idx].clone())
-    }
     /// swap lhs and rhs only if there is one
     /// returns none if they can not be swapped
     ///
@@ -580,6 +571,8 @@ impl TRS {
         }
         return Some(rules);
     }
+    /// Selects a rule from the TRS at random, swaps the LHS and RHS if possible and inserts the resulting rules
+    /// back into the TRS imediately after the background.
     pub fn swap_lhs_and_rhs<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
@@ -593,16 +586,18 @@ impl TRS {
             return Ok(trs);
         }
         let idx: usize = rng.gen_range(num_background, num_rules);
-        let rule = trs.utrs.remove_idx(idx).expect("removing original rule");
-        let rules = TRS::swap_lhs_and_all_rhs_helper(&rule);
+        let rules = TRS::swap_lhs_and_all_rhs_helper(&trs.utrs.rules[idx]);
         if rules == None {
             return Ok(trs);
         }
+        trs.utrs.remove_idx(idx).expect("removing original rule");
         trs.utrs
-            .inserts_idx(idx, rules.unwrap())
+            .inserts_idx(num_background, rules.unwrap())
             .expect("inserting rules back into trs");
         Ok(trs)
     }
+    /// Selects a rule from the TRS at random, finds all differences in the LHS and RHS, selects one at random,
+    /// and makes a rule from that difference and inserts it back into the TRS imediately after the background.
     pub fn local_difference<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
@@ -620,6 +615,7 @@ impl TRS {
         if result == None {
             return Ok(trs);
         }
+        trs.utrs.remove_idx(idx).expect("removing original rule");
         let new_rules = result.unwrap();
         let new_idx = rng.gen_range(0, new_rules.len());
         trs.utrs
@@ -782,6 +778,8 @@ impl TRS {
         }
         Rule::new(lhs, rhs)
     }
+    /// Selects two Rules from the TRS at random and atempts to inverse evaluate one rule on the other, if it
+    /// succeeds it takes that new rule and inserts it imediately after the background.
     pub fn inverse_evaluate<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
