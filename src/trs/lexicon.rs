@@ -382,6 +382,18 @@ impl Lexicon {
         }
         Ok(trs)
     }
+
+    pub fn var_type_to_replace_common_term(
+        &mut self,
+        term: &Term,
+        t: &Term,
+        ctx: &mut TypeContext,
+    ) -> Result<Type, TypeError> {
+        self.0
+            .read()
+            .expect("poisoned lexicon")
+            .var_type_to_replace_common_term(term, t, ctx)
+    }
 }
 impl fmt::Debug for Lexicon {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -883,7 +895,45 @@ impl Lex {
         }
         context.to_rule().or(Err(SampleError::Subterm))
     }
+    fn infer_term_inter(
+        &self,
+        term: &Term,
+        ctx: &mut TypeContext,
+        place: Place,
+        tps: &mut HashMap<Place, Type>,
+    ) -> Result<Type, TypeError> {
+        let tp = match *term {
+            Term::Variable(v) => self.instantiate_atom(&Atom::from(v), ctx)?,
+            Term::Application { op, ref args } => {
+                let head_type = self.instantiate_atom(&Atom::from(op), ctx)?;
+                let body_type = {
+                    let mut pre_types = Vec::with_capacity(args.len() + 1);
+                    for (i, a) in args.iter().enumerate() {
+                        let mut new_place = place.clone();
+                        new_place.push(i);
+                        pre_types.push(self.infer_term_inter(a, ctx, new_place, tps)?);
+                    }
+                    pre_types.push(ctx.new_variable());
+                    Type::from(pre_types)
+                };
+                ctx.unify(&head_type, &body_type)?;
+                head_type.returns().unwrap_or(&head_type).apply(ctx)
+            }
+        };
+        tps.insert(place, tp.clone());
+        Ok(tp)
+    }
 
+    pub fn var_type_to_replace_common_term(
+        &mut self,
+        term: &Term,
+        t: &Term,
+        ctx: &mut TypeContext,
+    ) -> Result<Type, TypeError> {
+        let mut map = HashMap::new();
+        let tp = self.infer_term_inter(term, ctx, vec![0], &mut map)?;
+        Ok(map.get(term).unwrap().clone())
+    }
     fn logprior_term(
         &self,
         term: &Term,

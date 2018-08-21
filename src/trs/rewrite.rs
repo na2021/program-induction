@@ -9,6 +9,7 @@ use itertools::Itertools;
 use polytype::Context as TypeContext;
 use rand::seq::sample_iter;
 use rand::Rng;
+use std::collections::HashMap;
 use std::f64::NEG_INFINITY;
 use std::fmt;
 use term_rewriting::trace::Trace;
@@ -315,7 +316,8 @@ impl TRS {
     }
     /// Memorizes a rule from the data provided at random and adds it to the TRS.
     pub fn add_exception<R: Rng>(&self, data: Vec<Rule>, rng: &mut R) -> Result<TRS, SampleError> {
-        let num_background = self.lex
+        let num_background = self
+            .lex
             .0
             .read()
             .expect("poisoned lexicon")
@@ -387,7 +389,8 @@ impl TRS {
     pub fn randomly_move_rule<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
-        let num_background = self.lex
+        let num_background = self
+            .lex
             .0
             .read()
             .expect("poisoned lexicon")
@@ -576,7 +579,8 @@ impl TRS {
     pub fn swap_lhs_and_rhs<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
-        let num_background = self.lex
+        let num_background = self
+            .lex
             .0
             .read()
             .expect("poisoned lexicon")
@@ -596,12 +600,77 @@ impl TRS {
             .expect("inserting rules back into trs");
         Ok(trs)
     }
-    /// Selects a rule from the TRS at random, finds all differences in the LHS and RHS, selects one at random,
-    /// and makes a rule from that difference and inserts it back into the TRS imediately after the background.
+    /// Selects a rule from the TRS at random, swaps the LHS and RHS if possible and inserts the resulting rules
+    /// back into copies of the TRS imediately after the background.
+    pub fn swap_lhs_and_rhs_vec<R: Rng>(&self, rng: &mut R) -> Result<Vec<TRS>, SampleError> {
+        let mut trs = self.clone();
+        let num_rules = self.len();
+        let num_background = self
+            .lex
+            .0
+            .read()
+            .expect("poisoned lexicon")
+            .background
+            .len();
+        if num_background >= num_rules - 1 {
+            return Ok(vec![trs]);
+        }
+        let idx: usize = rng.gen_range(num_background, num_rules);
+        let result = TRS::swap_lhs_and_all_rhs_helper(&trs.utrs.rules[idx]);
+        if result == None {
+            return Ok(vec![trs]);
+        }
+        trs.utrs.remove_idx(idx).expect("removing original rule");
+        let rules = result.unwrap();
+        let mut trs_vec = vec![];
+        for idx in 0..rules.len() {
+            let mut temp_trs = trs.clone();
+            temp_trs
+                .utrs
+                .insert_idx(num_background, rules[idx].clone())?;
+            trs_vec.push(temp_trs);
+        }
+        Ok(trs_vec)
+    }
+    /// Selects a rule from the TRS at random, finds all differences in the LHS and RHS,
+    /// and makes a rule from those differences and inserts them back into copies of the TRS imediately after the background.
+    pub fn local_difference_vec<R: Rng>(&self, rng: &mut R) -> Result<Vec<TRS>, SampleError> {
+        let mut trs = self.clone();
+        let num_rules = self.len();
+        let num_background = self
+            .lex
+            .0
+            .read()
+            .expect("poisoned lexicon")
+            .background
+            .len();
+        if num_rules == num_background {
+            return Ok(vec![trs]);
+        }
+        let idx = rng.gen_range(num_background, num_rules);
+        let result = TRS::local_difference_helper(&trs.utrs.rules[idx]);
+        if result == None {
+            return Ok(vec![trs]);
+        }
+        trs.utrs.remove_idx(idx).expect("removing original rule");
+        let new_rules = result.unwrap();
+        let mut trs_vec = vec![];
+        for idx in 0..new_rules.len() {
+            let mut temp_trs = trs.clone();
+            temp_trs
+                .utrs
+                .insert_idx(num_background, new_rules[idx].clone())?;
+            trs_vec.push(temp_trs);
+        }
+        Ok(trs_vec)
+    }
+    /// Selects a rule from the TRS at random, finds all differences in the LHS and RHS,
+    /// and makes a rule from those differences and inserts them back into the TRS imediately after the background.
     pub fn local_difference<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
-        let num_background = self.lex
+        let num_background = self
+            .lex
             .0
             .read()
             .expect("poisoned lexicon")
@@ -617,9 +686,7 @@ impl TRS {
         }
         trs.utrs.remove_idx(idx).expect("removing original rule");
         let new_rules = result.unwrap();
-        let new_idx = rng.gen_range(0, new_rules.len());
-        trs.utrs
-            .insert_idx(num_background, new_rules[new_idx].clone())?;
+        trs.utrs.inserts_idx(num_background, new_rules)?;
         Ok(trs)
     }
     /// local difference, remove all the same
@@ -783,7 +850,8 @@ impl TRS {
     pub fn inverse_evaluate<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
-        let num_background = self.lex
+        let num_background = self
+            .lex
             .0
             .read()
             .expect("poisoned lexicon")
@@ -797,10 +865,17 @@ impl TRS {
         while ref_idx == target_idx {
             target_idx = rng.gen_range(num_background, num_rules);
         }
-        let new_rule = TRS::inverse_evaluate_rule_helper(
-            &trs.utrs.rules[ref_idx],
-            &trs.utrs.rules[target_idx],
-        );
+        let mut ref_rule = trs.utrs.rules[ref_idx].clone();
+        let rhs_idx = rng.gen_range(0, ref_rule.rhs.len());
+        let temp_rule = Rule::new(ref_rule.lhs, vec![ref_rule.rhs[rhs_idx].clone()]);
+        if temp_rule == None {
+            return Ok(trs);
+        }
+        ref_rule = temp_rule.unwrap();
+        if ref_rule.lhs.variables().len() != ref_rule.rhs[0].variables().len() {
+            return Ok(trs);
+        }
+        let new_rule = TRS::inverse_evaluate_rule_helper(&ref_rule, &trs.utrs.rules[target_idx]);
         if new_rule == None {
             return Ok(trs);
         }
@@ -862,6 +937,85 @@ impl TRS {
             }
         }
         Some(r)
+    }
+    pub fn replace_frequent_term<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
+        let mut trs = self.clone();
+        let num_rules = self.len();
+        let num_background = self
+            .lex
+            .0
+            .read()
+            .expect("poisoned lexicon")
+            .background
+            .len();
+        if num_background == num_rules {
+            return Ok(trs);
+        }
+        let idx = rng.gen_range(num_background, num_rules);
+        let rule = trs.utrs.rules[idx].clone();
+        let h = TRS::count_subterms(&rule);
+        let frequencies = h.values();
+        let max = frequencies.max();
+        if max == None {
+            return Ok(trs);
+        }
+        let term = TRS::get_key_value(&max.unwrap(), &h).unwrap();
+        let tp = trs
+            .lex
+            .0
+            .write()
+            .expect("poisoned lexicon")
+            .var_type_to_replace_common_term(&rule.lhs, &term, &mut self.ctx);
+        let v = trs
+            .lex
+            .0
+            .write()
+            .expect("poisoned lexicon")
+            .invent_variable(&tp);
+        let new_rule = TRS::replace_term_in_rule_helper(&rule, &term, Term::Variable(v));
+        if new_rule == None {
+            return Ok(trs);
+        }
+        trs.utrs.remove_idx(idx).expect("removing old rule");
+        trs.utrs.insert_idx(num_background, new_rule.unwrap())?;
+        Ok(trs)
+    }
+    pub fn get_key_value(val: &i32, h: &HashMap<Term, i32>) -> Option<Term> {
+        let mut iter = h.iter();
+        let pair = iter.find(|(_k, v)| *v == val);
+        if pair == None {
+            return None;
+        }
+        let (k, _) = pair.unwrap();
+        return Some(k.clone());
+    }
+    pub fn count_subterms(r: &Rule) -> HashMap<Term, i32> {
+        let mut h = HashMap::default();
+        TRS::count_subterms_helper(&r.lhs, &mut h);
+        for idx in 0..r.rhs.len() {
+            TRS::count_subterms_helper(&r.rhs[idx], &mut h);
+        }
+        h
+    }
+    pub fn count_subterms_in_vec(t_vec: &Vec<Term>, h: &mut HashMap<Term, i32>) {
+        for idx in 0..t_vec.len() {
+            TRS::count_subterms_helper(&t_vec[idx], h);
+        }
+    }
+    pub fn count_subterms_helper(t: &Term, h: &mut HashMap<Term, i32>) {
+        if !h.contains_key(t) {
+            h.insert(t.clone(), 1);
+        }
+        let val = *h.get(t).unwrap();
+        h.insert(t.clone(), val + 1);
+        match t {
+            Term::Application { op: _, args } => {
+                for idx in 0..args.len() {
+                    TRS::count_subterms_helper(&args[idx], h);
+                }
+            }
+            _ => (),
+        }
     }
 }
 impl fmt::Display for TRS {
