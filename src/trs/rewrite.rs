@@ -28,7 +28,7 @@ pub struct TRS {
 }
 impl TRS {
     pub fn pretty_utrs(&self, sig: &Signature) -> String {
-        self.utrs.pretty(sig)
+        self.utrs.pretty()
     }
     /// Create a new `TRS` under the given [`Lexicon`]. Any background knowledge
     /// will be appended to the given ruleset.
@@ -85,7 +85,7 @@ impl TRS {
             let lex = lexicon.0.read().expect("poisoned lexicon");
             rules.append(&mut lex.background.clone());
             let utrs = UntypedTRS::new(rules);
-            lex.infer_utrs(&utrs, &mut ctx)?;
+            lexicon.infer_utrs(&utrs, &mut ctx)?;
             utrs
         };
         Ok(TRS {
@@ -291,11 +291,7 @@ impl TRS {
             true,
             max_size,
         )?;
-        trs.lex
-            .0
-            .write()
-            .expect("poisoned lexicon")
-            .infer_rule(&rule, &mut trs.ctx)?;
+        trs.lex.infer_rule(&rule, &mut trs.ctx)?;
         trs.utrs.push(rule)?;
         Ok(trs)
     }
@@ -917,7 +913,7 @@ impl TRS {
         let lops = r.lhs.operators();
         let mut possible_consts: Vec<Operator> = vec![];
         for idx in 0..lops.len() {
-            if lops[idx].arity(sig) == 0 {
+            if lops[idx].arity() == 0 {
                 possible_consts.push(lops[idx]);
             }
         }
@@ -962,15 +958,9 @@ impl TRS {
         let term = TRS::get_key_value(&max.unwrap(), &h).unwrap();
         let tp = trs
             .lex
-            .0
-            .write()
-            .expect("poisoned lexicon")
-            .var_type_to_replace_common_term(&rule.lhs, &term, &mut self.ctx);
+            .var_type_to_replace_common_term(&rule.lhs, &term, &mut self.ctx).unwrap();
         let v = trs
             .lex
-            .0
-            .write()
-            .expect("poisoned lexicon")
             .invent_variable(&tp);
         let new_rule = TRS::replace_term_in_rule_helper(&rule, &term, Term::Variable(v));
         if new_rule == None {

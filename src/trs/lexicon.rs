@@ -383,6 +383,26 @@ impl Lexicon {
         Ok(trs)
     }
 
+    pub fn infer_term(&self, term: &Term, ctx: &mut TypeContext) -> Result<TypeSchema, TypeError> {
+        self.0.write().expect("poisoned lexicon").infer_term(term, ctx)
+    }
+
+    pub fn infer_rule(
+        &self,
+        r: &Rule,
+        ctx: &mut TypeContext,
+    ) -> Result<(TypeSchema, TypeSchema, Vec<TypeSchema>), TypeError> {
+        self.0.write().expect("poisoned lexicon").infer_rule(r,ctx)
+    }
+
+    pub fn infer_utrs(&self, utrs: &UntypedTRS, ctx: &mut TypeContext) -> Result<(), TypeError> {
+        self.0.write().expect("poisoned lexicon").infer_utrs(utrs, ctx)
+    }
+
+    pub fn invent_variable(&self, tp: &Type) -> Variable {
+        self.0.write().expect("poisoned lexicon").invent_variable(tp)
+    }
+
     pub fn var_type_to_replace_common_term(
         &mut self,
         term: &Term,
@@ -390,7 +410,7 @@ impl Lexicon {
         ctx: &mut TypeContext,
     ) -> Result<Type, TypeError> {
         self.0
-            .read()
+            .write()
             .expect("poisoned lexicon")
             .var_type_to_replace_common_term(term, t, ctx)
     }
@@ -561,7 +581,7 @@ impl Lex {
             Atom::Variable(ref v) => self.var_tp(v),
         }
     }
-    pub fn infer_term(&self, term: &Term, ctx: &mut TypeContext) -> Result<TypeSchema, TypeError> {
+    fn infer_term(&self, term: &Term, ctx: &mut TypeContext) -> Result<TypeSchema, TypeError> {
         let tp = self.infer_term_internal(term, ctx)?;
         let lex_vars = self.free_vars_applied(ctx);
         Ok(tp.apply(ctx).generalize(&lex_vars))
@@ -584,7 +604,7 @@ impl Lex {
         }
         self.instantiate_atom(&term.head(), ctx)
     }
-    pub fn infer_context(
+    fn infer_context(
         &self,
         context: &Context,
         ctx: &mut TypeContext,
@@ -622,7 +642,7 @@ impl Lex {
         tps.insert(place, tp.clone());
         Ok(tp)
     }
-    pub fn infer_rule(
+    fn infer_rule(
         &self,
         r: &Rule,
         ctx: &mut TypeContext,
@@ -688,7 +708,7 @@ impl Lex {
         }
         Ok(lhs_type.apply(ctx))
     }
-    pub fn infer_utrs(&self, utrs: &UntypedTRS, ctx: &mut TypeContext) -> Result<(), TypeError> {
+    fn infer_utrs(&self, utrs: &UntypedTRS, ctx: &mut TypeContext) -> Result<(), TypeError> {
         // TODO: we assume the variables already exist in the signature. Is that sensible?
         for rule in &utrs.rules {
             self.infer_rule(rule, ctx)?;
@@ -821,7 +841,7 @@ impl Lex {
         }
         context.to_term().or(Err(SampleError::Subterm))
     }
-    pub fn sample_rule(
+    fn sample_rule(
         &mut self,
         schema: &TypeSchema,
         ctx: &mut TypeContext,
@@ -862,7 +882,7 @@ impl Lex {
             }
         }
     }
-    pub fn sample_rule_from_context(
+    fn sample_rule_from_context(
         &mut self,
         mut context: RuleContext,
         ctx: &mut TypeContext,
@@ -924,7 +944,7 @@ impl Lex {
         Ok(tp)
     }
 
-    pub fn var_type_to_replace_common_term(
+    fn var_type_to_replace_common_term(
         &mut self,
         term: &Term,
         t: &Term,
