@@ -952,7 +952,8 @@ impl Lex {
     ) -> Result<Type, TypeError> {
         let mut map = HashMap::new();
         let tp = self.infer_term_inter(term, ctx, vec![0], &mut map)?;
-        Ok(map.get(term).unwrap().clone())
+        let term_to_place: HashMap<_,_> = term.subterms().into_iter().collect();
+        Ok(map.get(term_to_place.get(t).unwrap()).unwrap().clone())
     }
     fn logprior_term(
         &self,
