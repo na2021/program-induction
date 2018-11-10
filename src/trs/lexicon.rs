@@ -923,9 +923,9 @@ impl Lex {
         tps: &mut HashMap<Place, Type>,
     ) -> Result<Type, TypeError> {
         let tp = match *term {
-            Term::Variable(v) => self.instantiate_atom(&Atom::from(v), ctx)?,
-            Term::Application { op, ref args } => {
-                let head_type = self.instantiate_atom(&Atom::from(op), ctx)?;
+            Term::Variable(ref v) => self.instantiate_atom(&Atom::from(v.clone()), ctx)?,
+            Term::Application { ref op, ref args } => {
+                let head_type = self.instantiate_atom(&Atom::from(op.clone()), ctx)?;
                 let body_type = {
                     let mut pre_types = Vec::with_capacity(args.len() + 1);
                     for (i, a) in args.iter().enumerate() {
@@ -951,7 +951,7 @@ impl Lex {
         ctx: &mut TypeContext,
     ) -> Result<Type, TypeError> {
         let mut map = HashMap::new();
-        let tp = self.infer_term_inter(term, ctx, vec![0], &mut map)?;
+        let _tp = self.infer_term_inter(term, ctx, vec![0], &mut map)?;
         let term_to_place: HashMap<_,_> = term.subterms().into_iter().collect();
         Ok(map.get(term_to_place.get(t).unwrap()).unwrap().clone())
     }

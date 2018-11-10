@@ -27,7 +27,7 @@ pub struct TRS {
     pub(crate) ctx: TypeContext,
 }
 impl TRS {
-    pub fn pretty_utrs(&self, sig: &Signature) -> String {
+    pub fn pretty_utrs(&self, _sig: &Signature) -> String {
         self.utrs.pretty()
     }
     /// Create a new `TRS` under the given [`Lexicon`]. Any background knowledge
@@ -433,14 +433,15 @@ impl TRS {
             return v;
         } else if term.args() != vec![] {
             match *term {
-                Term::Variable(_var) => {
+                Term::Variable(ref _var) => {
                     return term.clone();
                 }
-                Term::Application { op, args: _ } => {
+                Term::Application {ref op, args: _ } => {
                     let mut args = term.args().clone();
                     for idx in 0..args.len() {
                         args[idx] = TRS::replace_term_helper(&args[idx], t, v.clone());
                     }
+                    let op = op.clone();
                     return Term::Application { op, args };
                 }
             }
@@ -914,7 +915,7 @@ impl TRS {
         let mut possible_consts: Vec<Operator> = vec![];
         for idx in 0..lops.len() {
             if lops[idx].arity() == 0 {
-                possible_consts.push(lops[idx]);
+                possible_consts.push(lops[idx].clone());
             }
         }
         if possible_consts == vec![] {
@@ -934,7 +935,7 @@ impl TRS {
         }
         Some(r)
     }
-    pub fn replace_frequent_term<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
+    pub fn replace_frequent_term<R: Rng>(&mut self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
         let num_background = self
