@@ -882,59 +882,6 @@ impl TRS {
             .expect("inserting new rule");
         Ok(trs)
     }
-    // generalizes a rule by one step, converts one constant that exists in both sides of a rule into a variable
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # #[macro_use] extern crate polytype;
-    /// # extern crate programinduction;
-    /// # extern crate rand;
-    /// # extern crate term_rewriting;
-    /// # use programinduction::trs::{TRS, Lexicon};
-    /// # use rand::{thread_rng};
-    /// # use term_rewriting::{Context, RuleContext, Signature, parse_rule};
-    /// # fn main() {
-    /// let mut sig = Signature::default();
-    ///
-    /// let r = parse_rule(&mut sig, "A(B C) = A(B D)").expect("parse of A(B C) = A(B D)");
-    ///
-    /// let result = TRS::generalize_rule_helper(&r, &mut sig);
-    ///
-    /// if result == None {
-    ///     assert!(false);
-    /// } else {
-    ///     let new_rule = result.unwrap();
-    ///     assert_eq!(new_rule.display(&sig), "A(var0_ C) = A(var0_ D)");
-    /// }
-    /// # }
-    /// ```
-    pub fn generalize_rule_helper(rule: &Rule, sig: &mut Signature) -> Option<Rule> {
-        let r = rule.clone();
-        let lops = r.lhs.operators();
-        let mut possible_consts: Vec<Operator> = vec![];
-        for idx in 0..lops.len() {
-            if lops[idx].arity() == 0 {
-                possible_consts.push(lops[idx].clone());
-            }
-        }
-        if possible_consts == vec![] {
-            return Some(r);
-        }
-        for idx in 0..possible_consts.len() {
-            for ridx in 0..r.rhs.len() {
-                if r.rhs[ridx].operators().contains(&possible_consts[idx]) {
-                    let t = Term::Application {
-                        op: possible_consts[idx].clone(),
-                        args: vec![],
-                    };
-                    let v = Term::Variable(sig.new_var(None));
-                    return TRS::replace_term_in_rule_helper(&r, &t, v);
-                }
-            }
-        }
-        Some(r)
-    }
     pub fn replace_frequent_term<R: Rng>(&mut self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();

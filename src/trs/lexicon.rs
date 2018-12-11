@@ -943,7 +943,7 @@ impl Lex {
         tps.insert(place, tp.clone());
         Ok(tp)
     }
-
+    /// Returns the type of the most common subterm in order to replace it with a variable
     fn var_type_to_replace_common_term(
         &mut self,
         term: &Term,
