@@ -209,7 +209,7 @@ impl TRS {
         }
     }
 
-    /// Sample a rule and add it to the rewrite system.
+    /// Sample a Rule and add it to the rewrite system.
     ///
     /// # Example
     ///
@@ -295,7 +295,7 @@ impl TRS {
         trs.utrs.push(rule)?;
         Ok(trs)
     }
-    /// Delete a rule from the rewrite system if possible. Background knowledge
+    /// Delete a Rule from the rewrite system if possible. Background knowledge
     /// cannot be deleted.
     pub fn delete_rule<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let background = &self.lex.0.read().expect("poisoned lexicon").background;
@@ -310,7 +310,7 @@ impl TRS {
             Ok(trs)
         }
     }
-    /// Memorizes a rule from the data provided at random and adds it to the TRS.
+    /// Memorizes a Rule from the data provided at random and adds it to the TRS.
     pub fn add_exception<R: Rng>(&self, data: Vec<Rule>, rng: &mut R) -> Result<TRS, SampleError> {
         let num_background = self
             .lex
@@ -324,7 +324,7 @@ impl TRS {
         trs.utrs.insert_idx(num_background, data[idx].clone())?;
         Ok(trs)
     }
-    /// Move a rule from one place in the TRS to another at random, excluding the background.
+    /// Move a Rule from one place in the TRS to another at random, excluding the background.
     ///
     /// # Example
     ///
@@ -405,7 +405,7 @@ impl TRS {
             .expect("moving rule from random locations i to j");
         Ok(trs)
     }
-    /// replace helper
+    /// Replaces one subterm with another subterm in a main Term.
     ///
     /// # Example
     ///
@@ -448,7 +448,7 @@ impl TRS {
         }
         return term.clone();
     }
-    /// replaces term in rule with another
+    /// Replaces one subterm with another subterm in a given Rule.
     ///
     /// # Example
     ///
@@ -484,7 +484,7 @@ impl TRS {
         }
         Rule::new(lhs, rhs)
     }
-    /// swap lhs and rhs only if there is one
+    /// swap lhs and rhs only if there is only one
     /// returns none if they can not be swapped
     ///
     /// # Example
@@ -525,7 +525,8 @@ impl TRS {
         }
         return None;
     }
-    /// swap lhs and rhs all
+    /// returns a vector of a rules with each rhs being the lhs of the original
+    /// rule and each lhs is each rhs of the original.
     ///
     /// # Example
     ///
@@ -597,7 +598,7 @@ impl TRS {
             .expect("inserting rules back into trs");
         Ok(trs)
     }
-    /// Selects a rule from the TRS at random, swaps the LHS and RHS if possible and inserts the resulting rules
+    /// Selects a rule from the TRS at random, swaps the LHS and all RHS if possible and inserts the resulting rules
     /// back into copies of the TRS imediately after the background.
     pub fn swap_lhs_and_rhs_vec<R: Rng>(&self, rng: &mut R) -> Result<Vec<TRS>, SampleError> {
         let mut trs = self.clone();
@@ -630,7 +631,7 @@ impl TRS {
         Ok(trs_vec)
     }
     /// Selects a rule from the TRS at random, finds all differences in the LHS and RHS,
-    /// and makes a rule from those differences and inserts them back into copies of the TRS imediately after the background.
+    /// and makes rules from those differences and inserts them back into copies of the TRS imediately after the background.
     pub fn local_difference_vec<R: Rng>(&self, rng: &mut R) -> Result<Vec<TRS>, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
@@ -662,7 +663,7 @@ impl TRS {
         Ok(trs_vec)
     }
     /// Selects a rule from the TRS at random, finds all differences in the LHS and RHS,
-    /// and makes a rule from those differences and inserts them back into the TRS imediately after the background.
+    /// and makes rules from those differences and inserts them back into the TRS imediately after the background.
     pub fn local_difference<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
@@ -686,7 +687,8 @@ impl TRS {
         trs.utrs.inserts_idx(num_background, new_rules)?;
         Ok(trs)
     }
-    /// local difference, remove all the same
+    /// Given a rule that has similar terms in the lhs and rhs,
+    /// returns a list of rules where each similarity is removed one at a time
     ///
     /// # Example
     ///
@@ -740,6 +742,7 @@ impl TRS {
         }
         Some(rules)
     }
+    // helper for local difference, finds differences in the given lhs and rhs recursively
     pub fn find_differences(lhs: Term, rhs: Term) -> Option<Vec<(Term, Term)>> {
         if lhs == rhs {
             return None;
@@ -812,6 +815,7 @@ impl TRS {
     pub fn inverse_evaluation_helper(rule: &Rule, t: &Term) -> Term {
         TRS::replace_term_helper(t, &rule.rhs[0], rule.lhs.clone())
     }
+    /// Given two rules, attempts to apply one rule inversely to the other.
     ///
     /// # Example
     ///
@@ -882,6 +886,8 @@ impl TRS {
             .expect("inserting new rule");
         Ok(trs)
     }
+    /// Finds the most frequent term in a given rule and replaces it with a variable 
+    /// of the same type.
     pub fn replace_frequent_term<R: Rng>(&mut self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
@@ -918,6 +924,7 @@ impl TRS {
         trs.utrs.insert_idx(num_background, new_rule.unwrap())?;
         Ok(trs)
     }
+    /// Finds a key(Term) in a given hashmap with the desired value
     pub fn get_key_value(val: &i32, h: &HashMap<Term, i32>) -> Option<Term> {
         let mut iter = h.iter();
         let pair = iter.find(|(_k, v)| *v == val);
@@ -927,6 +934,9 @@ impl TRS {
         let (k, _) = pair.unwrap();
         return Some(k.clone());
     }
+    /// Counts the number of times that each subterm appears in a rule
+    /// returns a hashmap keyed on the subterms with the values representing the 
+    /// number of times they appear
     pub fn count_subterms(r: &Rule) -> HashMap<Term, i32> {
         let mut h = HashMap::default();
         TRS::count_subterms_helper(&r.lhs, &mut h);
@@ -935,11 +945,15 @@ impl TRS {
         }
         h
     }
+    /// Given a vector of terms stores the number of times each subterm appears across all
+    /// terms in the vector in the given hashmap.
     pub fn count_subterms_in_vec(t_vec: &Vec<Term>, h: &mut HashMap<Term, i32>) {
         for idx in 0..t_vec.len() {
             TRS::count_subterms_helper(&t_vec[idx], h);
         }
     }
+    /// Given a term stores the number of times each subterm appears in the term
+    /// in the given hashmap.
     pub fn count_subterms_helper(t: &Term, h: &mut HashMap<Term, i32>) {
         if !h.contains_key(t) {
             h.insert(t.clone(), 1);

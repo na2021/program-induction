@@ -382,11 +382,11 @@ impl Lexicon {
         }
         Ok(trs)
     }
-
+    /// Infers `Term` from a `Context`
     pub fn infer_term(&self, term: &Term, ctx: &mut TypeContext) -> Result<TypeSchema, TypeError> {
         self.0.write().expect("poisoned lexicon").infer_term(term, ctx)
     }
-
+    /// Infers `Rule` from a `Context`
     pub fn infer_rule(
         &self,
         r: &Rule,
@@ -394,15 +394,15 @@ impl Lexicon {
     ) -> Result<(TypeSchema, TypeSchema, Vec<TypeSchema>), TypeError> {
         self.0.write().expect("poisoned lexicon").infer_rule(r,ctx)
     }
-
+    /// Infers `TRS` from a `Context`
     pub fn infer_utrs(&self, utrs: &UntypedTRS, ctx: &mut TypeContext) -> Result<(), TypeError> {
         self.0.write().expect("poisoned lexicon").infer_utrs(utrs, ctx)
     }
-
+    /// Invents a new `Variable` of a given `Type`
     pub fn invent_variable(&self, tp: &Type) -> Variable {
         self.0.write().expect("poisoned lexicon").invent_variable(tp)
     }
-
+    /// Returns the `Type` of a given `Term`
     pub fn var_type_to_replace_common_term(
         &mut self,
         term: &Term,
@@ -943,7 +943,7 @@ impl Lex {
         tps.insert(place, tp.clone());
         Ok(tp)
     }
-    /// Returns the type of the most common subterm in order to replace it with a variable
+    /// Returns the type of a given subterm
     fn var_type_to_replace_common_term(
         &mut self,
         term: &Term,
