@@ -13,7 +13,6 @@ use std::collections::HashMap;
 use std::f64::NEG_INFINITY;
 use std::fmt;
 use term_rewriting::trace::Trace;
-
 use term_rewriting::{Rule, RuleContext, Strategy as RewriteStrategy, TRS as UntypedTRS};
 
 use super::{Lexicon, ModelParams, SampleError, TypeError};
