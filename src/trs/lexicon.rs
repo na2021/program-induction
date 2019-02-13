@@ -386,14 +386,6 @@ impl Lexicon {
     pub fn infer_term(&self, term: &Term, ctx: &mut TypeContext) -> Result<TypeSchema, TypeError> {
         self.0.write().expect("poisoned lexicon").infer_term(term, ctx)
     }
-    /// Infers `Rule` from a `Context`
-    pub fn infer_rule(
-        &self,
-        r: &Rule,
-        ctx: &mut TypeContext,
-    ) -> Result<(TypeSchema, TypeSchema, Vec<TypeSchema>), TypeError> {
-        self.0.write().expect("poisoned lexicon").infer_rule(r,ctx)
-    }
     /// Infers `TRS` from a `Context`
     pub fn infer_utrs(&self, utrs: &UntypedTRS, ctx: &mut TypeContext) -> Result<(), TypeError> {
         self.0.write().expect("poisoned lexicon").infer_utrs(utrs, ctx)

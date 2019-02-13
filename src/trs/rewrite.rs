@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::f64::NEG_INFINITY;
 use std::fmt;
 use term_rewriting::trace::Trace;
-use term_rewriting::{Rule, RuleContext, Strategy as RewriteStrategy, TRS as UntypedTRS};
+use term_rewriting::{Rule,Term, RuleContext, Strategy as RewriteStrategy, TRS as UntypedTRS};
 
 use super::{Lexicon, ModelParams, SampleError, TypeError};
 
@@ -26,9 +26,6 @@ pub struct TRS {
     pub(crate) ctx: TypeContext,
 }
 impl TRS {
-    pub fn pretty_utrs(&self, _sig: &Signature) -> String {
-        self.utrs.pretty()
-    }
     /// Create a new `TRS` under the given [`Lexicon`]. Any background knowledge
     /// will be appended to the given ruleset.
     ///
