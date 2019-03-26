@@ -304,47 +304,6 @@ impl TRS {
             Ok(trs)
         }
     }
-    /// swap lhs and rhs only if there is only one
-    /// returns none if they can not be swapped
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # #[macro_use] extern crate polytype;
-    /// # extern crate programinduction;
-    /// # extern crate rand;
-    /// # extern crate term_rewriting;
-    /// # use programinduction::trs::{TRS, Lexicon};
-    /// # use rand::{thread_rng};
-    /// # use term_rewriting::{Context, RuleContext, Signature, parse_rule};
-    /// # fn main() {
-    /// let mut sig = Signature::default();
-    ///
-    /// let rule = parse_rule(&mut sig, "A(x_) = B(x_)").expect("parse of A(x_) = B(x_)");
-    ///
-    /// let new_rule = TRS::swap_lhs_and_one_rhs_helper(&rule);
-    ///
-    /// if new_rule == None {
-    ///     assert!(false);
-    /// } else {
-    ///     assert_eq!(new_rule.unwrap().display(), "B(x_) = A(x_)");
-    /// }
-    /// # }
-    /// ```
-    pub fn swap_lhs_and_one_rhs_helper(rule: &Rule) -> Option<Rule> {
-        let r = rule.clone();
-        let rhs = match r.rhs() {
-            Some(rh) => rh,
-            None => {
-                return None;
-            }
-        };
-        if rhs.variables().len() == r.lhs.variables().len() {
-            let new_rhs = vec![r.lhs];
-            return Rule::new(rhs, new_rhs);
-        }
-        return None;
-    }
     /// returns a vector of a rules with each rhs being the lhs of the original
     /// rule and each lhs is each rhs of the original.
     ///
@@ -372,6 +331,14 @@ impl TRS {
     ///     let rules = new_rules.unwrap().iter().map(|r| format!("{};", r.display())).join("\n");
     ///     assert_eq!(rules, "B(x_) = A(x_);\nC(x_) = A(x_);");
     /// }
+    ///
+    ///
+    /// let rule = parse_rule(&mut sig, "D(x_ y_) = E(x_) | F(x_)").expect("parse of A(x_) = B(x_) | C(x_)");
+    ///
+    /// let new_rules = TRS::swap_lhs_and_all_rhs_helper(&rule);
+    /// 
+    /// assert_eq!(new_rules, None);
+    ///
     /// # }
     /// ```
     pub fn swap_lhs_and_all_rhs_helper(rule: &Rule) -> Option<Vec<Rule>> {
@@ -394,6 +361,64 @@ impl TRS {
     }
     /// Selects a rule from the TRS at random, swaps the LHS and RHS if possible and inserts the resulting rules
     /// back into the TRS imediately after the background.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use] extern crate polytype;
+    /// # extern crate programinduction;
+    /// # extern crate rand;
+    /// # extern crate term_rewriting;
+    /// # use programinduction::trs::{TRS, Lexicon};
+    /// # use polytype::Context as TypeContext;
+    /// # use rand::{thread_rng};
+    /// # use term_rewriting::{Context, RuleContext, Signature, parse_rule};
+    /// # fn main() {
+    /// let mut sig = Signature::default();
+    ///
+    /// let mut ops = vec![];
+    /// sig.new_op(2, Some(".".to_string()));
+    /// ops.push(ptp![0, 1; @arrow[tp!(@arrow[tp!(0), tp!(1)]), tp!(0), tp!(1)]]);
+    /// sig.new_op(2, Some("PLUS".to_string()));
+    /// ops.push(ptp![@arrow[tp!(int), tp!(int), tp!(int)]]);
+    /// sig.new_op(1, Some("SUCC".to_string()));
+    /// ops.push(ptp![@arrow[tp!(int), tp!(int)]]);
+    /// sig.new_op(0, Some("ZERO".to_string()));
+    /// ops.push(ptp![int]);
+    ///
+    /// let rules = vec![
+    ///     parse_rule(&mut sig, "PLUS(x_ SUCC(y_)) = SUCC(PLUS(x_ y_)) | PLUS(SUCC(x_) y_)").expect("parsed rule"),
+    /// ];
+    ///
+    /// let vars = vec![
+    ///     ptp![int],
+    ///     ptp![int],
+    ///     ptp![int],
+    /// ];
+    ///
+    /// for op in sig.operators() {
+    ///     println!("{:?}/{}", op.name(), op.arity())
+    /// }
+    /// for r in &rules {
+    ///     println!("{:?}", r.pretty());
+    /// }
+    /// let lexicon = Lexicon::from_signature(sig, ops, vars, vec![], vec![], false, TypeContext::default());
+    ///
+    /// let mut trs = TRS::new(&lexicon, rules, &lexicon.context()).unwrap();
+    ///
+    /// assert_eq!(trs.len(), 1);
+    ///
+    /// let mut rng = thread_rng();
+    /// 
+    /// if let Ok(new_trs) = trs.swap_lhs_and_rhs(&mut rng) {
+    ///     assert_eq!(new_trs.len(), 2);
+    ///     let display_str = format!("{}", new_trs);
+    ///     assert_eq!(display_str, "SUCC(PLUS(x_ y_)) = PLUS(x_ SUCC(y_));\nPLUS(SUCC(x_) y_) = PLUS(x_ SUCC(y_));");
+    /// } else {
+    ///     assert_eq!(trs.len(), 1);
+    /// }
+    /// # }
+    /// ```
     pub fn swap_lhs_and_rhs<R: Rng>(&self, rng: &mut R) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
@@ -404,7 +429,7 @@ impl TRS {
             .expect("poisoned lexicon")
             .background
             .len();
-        if num_background >= num_rules - 1 {
+        if num_background >= num_rules {
             return Ok(trs);
         }
         let idx: usize = rng.gen_range(num_background, num_rules);
@@ -420,6 +445,67 @@ impl TRS {
     }
     /// Selects a rule from the TRS at random, swaps the LHS and all RHS if possible and inserts the resulting rules
     /// back into copies of the TRS imediately after the background.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #[macro_use] extern crate polytype;
+    /// # extern crate programinduction;
+    /// # extern crate rand;
+    /// # extern crate term_rewriting;
+    /// # use programinduction::trs::{TRS, Lexicon};
+    /// # use polytype::Context as TypeContext;
+    /// # use rand::{thread_rng};
+    /// # use term_rewriting::{Context, RuleContext, Signature, parse_rule};
+    /// # fn main() {
+    /// let mut sig = Signature::default();
+    ///
+    /// let mut ops = vec![];
+    /// sig.new_op(2, Some(".".to_string()));
+    /// ops.push(ptp![0, 1; @arrow[tp!(@arrow[tp!(0), tp!(1)]), tp!(0), tp!(1)]]);
+    /// sig.new_op(2, Some("PLUS".to_string()));
+    /// ops.push(ptp![@arrow[tp!(int), tp!(int), tp!(int)]]);
+    /// sig.new_op(1, Some("SUCC".to_string()));
+    /// ops.push(ptp![@arrow[tp!(int), tp!(int)]]);
+    /// sig.new_op(0, Some("ZERO".to_string()));
+    /// ops.push(ptp![int]);
+    ///
+    /// let rules = vec![
+    ///     parse_rule(&mut sig, "PLUS(x_ SUCC(y_)) = SUCC(PLUS(x_ y_)) | PLUS(SUCC(x_) y_)").expect("parsed rule"),
+    /// ];
+    ///
+    /// let vars = vec![
+    ///     ptp![int],
+    ///     ptp![int],
+    ///     ptp![int],
+    /// ];
+    ///
+    /// for op in sig.operators() {
+    ///     println!("{:?}/{}", op.name(), op.arity())
+    /// }
+    /// for r in &rules {
+    ///     println!("{:?}", r.pretty());
+    /// }
+    /// let lexicon = Lexicon::from_signature(sig, ops, vars, vec![], vec![], false, TypeContext::default());
+    ///
+    /// let mut trs = TRS::new(&lexicon, rules, &lexicon.context()).unwrap();
+    ///
+    /// assert_eq!(trs.len(), 1);
+    ///
+    /// let mut rng = thread_rng();
+    /// 
+    /// if let Ok(trs_vec) = trs.swap_lhs_and_rhs_vec(&mut rng) {
+    ///     assert_eq!(trs_vec.len(), 2);
+    ///     let display_str_0 = format!("{}", trs_vec[0]);
+    ///     assert_eq!(display_str_0, "SUCC(PLUS(x_ y_)) = PLUS(x_ SUCC(y_));");
+    ///     
+    ///     let display_str_1 = format!("{}", trs_vec[1]);
+    ///     assert_eq!(display_str_1, "PLUS(SUCC(x_) y_) = PLUS(x_ SUCC(y_));");
+    /// } else {
+    ///     assert_eq!(trs.len(), 1);
+    /// }
+    /// # }
+    /// ```
     pub fn swap_lhs_and_rhs_vec<R: Rng>(&self, rng: &mut R) -> Result<Vec<TRS>, SampleError> {
         let mut trs = self.clone();
         let num_rules = self.len();
@@ -430,7 +516,7 @@ impl TRS {
             .expect("poisoned lexicon")
             .background
             .len();
-        if num_background >= num_rules - 1 {
+        if num_background >= num_rules{
             return Ok(vec![trs]);
         }
         let idx: usize = rng.gen_range(num_background, num_rules);
