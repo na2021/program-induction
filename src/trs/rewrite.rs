@@ -306,42 +306,7 @@ impl TRS {
     }
     /// returns a vector of a rules with each rhs being the lhs of the original
     /// rule and each lhs is each rhs of the original.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # #[macro_use] extern crate polytype;
-    /// # extern crate programinduction;
-    /// # extern crate rand;
-    /// # extern crate term_rewriting;
-    /// # extern crate itertools;
-    /// # use programinduction::trs::{TRS, Lexicon};
-    /// # use rand::{thread_rng};
-    /// # use term_rewriting::{Context, RuleContext, Signature, parse_rule};
-    /// # use itertools::Itertools;
-    /// # fn main() {
-    /// let mut sig = Signature::default();
-    ///
-    /// let rule = parse_rule(&mut sig, "A(x_) = B(x_) | C(x_)").expect("parse of A(x_) = B(x_) | C(x_)");
-    ///
-    /// let new_rules = TRS::swap_lhs_and_all_rhs_helper(&rule);
-    /// if new_rules == None {
-    ///     assert!(false);
-    /// } else {
-    ///     let rules = new_rules.unwrap().iter().map(|r| format!("{};", r.display())).join("\n");
-    ///     assert_eq!(rules, "B(x_) = A(x_);\nC(x_) = A(x_);");
-    /// }
-    ///
-    ///
-    /// let rule = parse_rule(&mut sig, "D(x_ y_) = E(x_) | F(x_)").expect("parse of A(x_) = B(x_) | C(x_)");
-    ///
-    /// let new_rules = TRS::swap_lhs_and_all_rhs_helper(&rule);
-    /// 
-    /// assert_eq!(new_rules, None);
-    ///
-    /// # }
-    /// ```
-    pub fn swap_lhs_and_all_rhs_helper(rule: &Rule) -> Option<Vec<Rule>> {
+    fn swap_lhs_and_all_rhs_helper(rule: &Rule) -> Option<Vec<Rule>> {
         let mut rules: Vec<Rule> = vec![];
         let num_vars = rule.variables().len();
         for idx in 0..rule.len() {
@@ -402,6 +367,7 @@ impl TRS {
     /// for r in &rules {
     ///     println!("{:?}", r.pretty());
     /// }
+    ///
     /// let lexicon = Lexicon::from_signature(sig, ops, vars, vec![], vec![], false, TypeContext::default());
     ///
     /// let mut trs = TRS::new(&lexicon, rules, &lexicon.context()).unwrap();
@@ -416,6 +382,39 @@ impl TRS {
     ///     assert_eq!(display_str, "SUCC(PLUS(x_ y_)) = PLUS(x_ SUCC(y_));\nPLUS(SUCC(x_) y_) = PLUS(x_ SUCC(y_));");
     /// } else {
     ///     assert_eq!(trs.len(), 1);
+    /// }
+    ///
+    ///
+    /// let mut sig = Signature::default();
+    ///
+    /// let mut ops = vec![];
+    /// sig.new_op(2, Some(".".to_string()));
+    /// ops.push(ptp![0, 1; @arrow[tp!(@arrow[tp!(0), tp!(1)]), tp!(0), tp!(1)]]);
+    /// sig.new_op(2, Some("A".to_string()));
+    /// ops.push(ptp![@arrow[tp!(int), tp!(int), tp!(int)]]);
+    /// sig.new_op(1, Some("B".to_string()));
+    /// ops.push(ptp![@arrow[tp!(int), tp!(int)]]);
+    ///
+    /// let rules = vec![
+    ///     parse_rule(&mut sig, "A(x_ y_) = B(x_ )").expect("parsed rule"),
+    /// ];
+    ///
+    /// let vars = vec![
+    ///     ptp![int],
+    ///     ptp![int],
+    ///     ptp![int],
+    /// ];
+    ///
+    /// let lexicon = Lexicon::from_signature(sig, ops, vars, vec![], vec![], false, TypeContext::default());
+    ///
+    /// let mut trs = TRS::new(&lexicon, rules, &lexicon.context()).unwrap();
+    ///
+    /// if let Ok(new_trs) = trs.swap_lhs_and_rhs(&mut rng) {
+    ///     let display_str = format!("{}", new_trs);
+    ///     assert_eq!(display_str, "SUCC(PLUS(x_ y_)) = PLUS(x_ SUCC(y_));\nPLUS(SUCC(x_) y_) = PLUS(x_ SUCC(y_));");
+    ///     assert!(false);
+    /// } else {
+    ///     assert!(true);
     /// }
     /// # }
     /// ```
