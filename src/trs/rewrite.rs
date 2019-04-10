@@ -12,7 +12,7 @@ use rand::Rng;
 use std::f64::NEG_INFINITY;
 use std::fmt;
 use term_rewriting::trace::Trace;
-use term_rewriting::{Rule, RuleContext, Strategy as RewriteStrategy, TRS as UntypedTRS};
+use term_rewriting::{Rule, RuleContext, Strategy as RewriteStrategy, TRS as UntypedTRS, Term};
 
 use super::{Lexicon, ModelParams, SampleError, TypeError};
 
@@ -329,12 +329,13 @@ impl TRS {
     ///
     /// let new_term = TRS::replace_term_helper(&term, &t, v);
     ///
-    /// assert_eq!(new_term.display(&sig), "A(y_ x_ D)");
+    /// assert_eq!(new_term.display(), "A(y_ x_ D)");
     /// # }
     /// ```
     pub fn replace_term_helper(term: &Term, t: &Term, v: Term) -> Term {
         if Term::alpha(t, term) != None {
-            return v;
+            let unwrapped_sub =  Term::alpha(t, term).unwrap();
+            return v.substitute(&unwrapped_sub);
         } else if term.args() != vec![] {
             match *term {
                 Term::Variable(ref _var) => {
@@ -375,7 +376,7 @@ impl TRS {
     ///     assert!(false);
     /// } else {
     ///     let rule = new_rule.unwrap();
-    ///     assert_eq!(rule.display(&sig), "A(y_ x_ D) = x_");
+    ///     assert_eq!(rule.display(), "A(y_ x_ D) = x_");
     /// }
     /// # }
     /// ```
@@ -406,14 +407,16 @@ impl TRS {
     ///
     /// let t = parse_term(&mut sig, "A(B(x_ x_))").expect("parse of A(B(x_ x_))");
     /// let r = parse_rule(&mut sig, "C(y_) = B(y_ y_)").expect("parse of C(y_) = B(y_ y_)");
+    /// let mut rng = thread_rng();
     ///
-    /// let result = TRS::inverse_evaluation_helper(&r, &t);
+    /// let result = TRS::inverse_evaluation_helper(&r, &t, &mut rng);
     ///
-    /// assert_eq!(result.display(&sig), "A(C(y_))");
+    /// assert_eq!(result.display(), "A(C(x_))");
     /// # }
     /// ```
-    pub fn inverse_evaluation_helper(rule: &Rule, t: &Term) -> Term {
-        TRS::replace_term_helper(t, &rule.rhs[0], rule.lhs.clone())
+    pub fn inverse_evaluation_helper<R: Rng>(rule: &Rule, t: &Term, rng: &mut R) -> Term {
+        let rhs_idx = rng.gen_range(0, rule.rhs.len());
+        TRS::replace_term_helper(t, &rule.rhs[rhs_idx], rule.lhs.clone())
     }
     /// Given two rules, attempts to apply one rule inversely to the other.
     ///
@@ -432,17 +435,18 @@ impl TRS {
     ///
     /// let r = parse_rule(&mut sig, "A(B(x_ x_)) = D B(x_ x_)").expect("parse of A(B(x_ x_)) = D B(x_ x_)");
     /// let rule = parse_rule(&mut sig, "C(y_) = B(y_ y_)").expect("parse of C(y_) = B(y_ y_)");
+    /// let mut rng = thread_rng();
+    /// 
+    /// let result = TRS::inverse_evaluate_rule_helper(&rule, &r, &mut rng);
     ///
-    /// let result = TRS::inverse_evaluate_rule_helper(&rule, &r);
-    ///
-    /// assert_eq!(result.unwrap().pretty(&sig), "A(C(y_)) = D C(y_)");
+    /// assert_eq!(result.unwrap().pretty(), "A(C(x_)) = D C(x_)");
     /// # }
     /// ```
-    pub fn inverse_evaluate_rule_helper(rule: &Rule, r: &Rule) -> Option<Rule> {
-        let lhs = TRS::inverse_evaluation_helper(rule, &r.lhs);
+    pub fn inverse_evaluate_rule_helper<R: Rng>(rule: &Rule, r: &Rule, rng: &mut R) -> Option<Rule> {
+        let lhs = TRS::inverse_evaluation_helper(rule, &r.lhs, rng);
         let mut rhs: Vec<Term> = vec![];
         for idx in 0..r.rhs.len() {
-            rhs.push(TRS::inverse_evaluation_helper(rule, &r.rhs[idx]));
+            rhs.push(TRS::inverse_evaluation_helper(rule, &r.rhs[idx], rng));
         }
         Rule::new(lhs, rhs)
     }
@@ -476,7 +480,7 @@ impl TRS {
         if ref_rule.lhs.variables().len() != ref_rule.rhs[0].variables().len() {
             return Ok(trs);
         }
-        let new_rule = TRS::inverse_evaluate_rule_helper(&ref_rule, &trs.utrs.rules[target_idx]);
+        let new_rule = TRS::inverse_evaluate_rule_helper(&ref_rule, &trs.utrs.rules[target_idx], rng);
         if new_rule == None {
             return Ok(trs);
         }
