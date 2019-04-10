@@ -12,7 +12,7 @@ use rand::Rng;
 use std::f64::NEG_INFINITY;
 use std::fmt;
 use term_rewriting::trace::Trace;
-use term_rewriting::{Rule, RuleContext, Strategy as RewriteStrategy, TRS as UntypedTRS, Term};
+use term_rewriting::{Rule, RuleContext, Strategy as RewriteStrategy, Term, TRS as UntypedTRS};
 
 use super::{Lexicon, ModelParams, SampleError, TypeError};
 
@@ -279,13 +279,9 @@ impl TRS {
     ) -> Result<TRS, SampleError> {
         let mut trs = self.clone();
         let context = sample_iter(rng, contexts, 1)?[0].clone();
-        let rule = trs.lex.sample_rule_from_context(
-            context,
-            &mut trs.ctx,
-            atom_weights,
-            true,
-            max_size,
-        )?;
+        let rule =
+            trs.lex
+                .sample_rule_from_context(context, &mut trs.ctx, atom_weights, true, max_size)?;
         trs.lex
             .0
             .write()
@@ -304,8 +300,7 @@ impl TRS {
             Err(SampleError::OptionsExhausted)
         } else {
             let mut trs = self.clone();
-            trs.utrs
-                .remove_clauses(sample_iter(rng, deletable, 1)?[0])?;
+            trs.utrs.remove_clauses(sample_iter(rng, deletable, 1)?[0])?;
             Ok(trs)
         }
     }
@@ -334,14 +329,14 @@ impl TRS {
     /// ```
     pub fn replace_term_helper(term: &Term, t: &Term, v: Term) -> Term {
         if Term::alpha(t, term) != None {
-            let unwrapped_sub =  Term::alpha(t, term).unwrap();
+            let unwrapped_sub = Term::alpha(t, term).unwrap();
             return v.substitute(&unwrapped_sub);
         } else if term.args() != vec![] {
             match *term {
                 Term::Variable(ref _var) => {
                     return term.clone();
                 }
-                Term::Application {ref op, args: _ } => {
+                Term::Application { ref op, args: _ } => {
                     let mut args = term.args().clone();
                     for idx in 0..args.len() {
                         args[idx] = TRS::replace_term_helper(&args[idx], t, v.clone());
@@ -389,7 +384,7 @@ impl TRS {
         }
         Rule::new(lhs, rhs)
     }
-    // helper for routinization  
+    // helper for routinization
     // TODO fix rule lhs before inserting
     ///
     /// # Example
@@ -436,13 +431,17 @@ impl TRS {
     /// let r = parse_rule(&mut sig, "A(B(x_ x_)) = D B(x_ x_)").expect("parse of A(B(x_ x_)) = D B(x_ x_)");
     /// let rule = parse_rule(&mut sig, "C(y_) = B(y_ y_)").expect("parse of C(y_) = B(y_ y_)");
     /// let mut rng = thread_rng();
-    /// 
+    ///
     /// let result = TRS::inverse_evaluate_rule_helper(&rule, &r, &mut rng);
     ///
     /// assert_eq!(result.unwrap().pretty(), "A(C(x_)) = D C(x_)");
     /// # }
     /// ```
-    pub fn inverse_evaluate_rule_helper<R: Rng>(rule: &Rule, r: &Rule, rng: &mut R) -> Option<Rule> {
+    pub fn inverse_evaluate_rule_helper<R: Rng>(
+        rule: &Rule,
+        r: &Rule,
+        rng: &mut R,
+    ) -> Option<Rule> {
         let lhs = TRS::inverse_evaluation_helper(rule, &r.lhs, rng);
         let mut rhs: Vec<Term> = vec![];
         for idx in 0..r.rhs.len() {
@@ -480,7 +479,8 @@ impl TRS {
         if ref_rule.lhs.variables().len() != ref_rule.rhs[0].variables().len() {
             return Ok(trs);
         }
-        let new_rule = TRS::inverse_evaluate_rule_helper(&ref_rule, &trs.utrs.rules[target_idx], rng);
+        let new_rule =
+            TRS::inverse_evaluate_rule_helper(&ref_rule, &trs.utrs.rules[target_idx], rng);
         if new_rule == None {
             return Ok(trs);
         }
